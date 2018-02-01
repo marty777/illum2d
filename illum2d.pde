@@ -39,16 +39,6 @@ class rayCaster {
         }
       }
       
-     int noiseLevel = 10;
-     int ambientLevel = 10;
-     
-     float gridincx = 1.0/this.griddivisionsX;
-     float gridincy = 1.0/this.griddivisionsY;
-     
-     PVector mouse = new PVector(localCoordsX(mouseX), localCoordsY(mouseY));
-     randomSeed(0);
-     
-     
      this.bakedillum = new color[this.h*this.w*griddivisionsX*griddivisionsY];
      this.bakeLights();
     }
