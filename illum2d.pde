@@ -1,3 +1,4 @@
+
 class droppedLight {
   PVector pos;
   color c;
@@ -17,6 +18,7 @@ class rayCaster {
     
     color mouseColor;
     ArrayList<droppedLight> lights;
+    color[] bakedillum;
     
     rayCaster(int w, int h, int griddivisionsX, int griddivisionsY, float cutoff) {
       this.mouseColor = color(255, 255, 255);
@@ -36,6 +38,19 @@ class rayCaster {
           }
         }
       }
+      
+     int noiseLevel = 10;
+     int ambientLevel = 10;
+     
+     float gridincx = 1.0/this.griddivisionsX;
+     float gridincy = 1.0/this.griddivisionsY;
+     
+     PVector mouse = new PVector(localCoordsX(mouseX), localCoordsY(mouseY));
+     randomSeed(0);
+     
+     
+     this.bakedillum = new color[this.h*this.w*griddivisionsX*griddivisionsY];
+     this.bakeLights();
     }
     
     void reset(float cutoff) {
@@ -54,6 +69,9 @@ class rayCaster {
           }
         }
       }
+      
+      
+      
     }
     
     float localCoordsX(float x) {
@@ -297,6 +315,54 @@ class rayCaster {
       }
     }
     
+    void bakeLights() {
+      float gridincx = 1.0/this.griddivisionsX;
+      float gridincy = 1.0/this.griddivisionsY;
+      
+      if(this.lights.size() == 0) {
+        for(int i = 0; i < this.h*this.w*griddivisionsX*griddivisionsY; i++) {
+         this.bakedillum[i] = 0;
+        } 
+        return;
+      }
+      
+      for(int i = 0; i < this.w; i++) {
+       for(int j = 0; j < this.h; j++)  {
+          if(lookup(i, j)) {
+            continue; 
+          }
+          
+          int x1 = 0;
+          int y1 = 0;
+          for(float x = i; x < i+1; x+=gridincx) {
+            
+            for(float y = j; y < j+1; y+= gridincy) {
+              
+              int red = 0;
+              int blue = 0;
+              int green = 0;
+              
+              for(int l = 0; l < lights.size(); l++) {
+                droppedLight light = lights.get(l);
+                color tl = luminance(light.pos, new PVector(x, y), light.c);
+                color tr = luminance(light.pos, new PVector(x + gridincx, y), light.c);
+                color bl = luminance(light.pos, new PVector(x, y + gridincy), light.c);
+                color br = luminance(light.pos, new PVector(x + gridincx, y + gridincy), light.c);
+                red += (fastRed(tl) + fastRed(tr) +fastRed(bl) + fastRed(br))/4;
+                green += (fastGreen(tl) + fastGreen(tr) +fastGreen(bl) + fastGreen(br))/4;
+                blue += (fastBlue(tl) + fastBlue(tr) +fastBlue(bl) + fastBlue(br))/4;
+              }
+              this.bakedillum[(i*this.griddivisionsX + x1) + (j*this.griddivisionsY + y1)*(this.w*this.griddivisionsX)] = color(red, green, blue);
+              y1++;
+            }
+            y1 = 0;
+            x1++;
+          }
+       }
+      }
+      
+    }
+    
     void drawLights() {
      noStroke();
      rectMode(CORNER);
@@ -315,6 +381,8 @@ class rayCaster {
         if(lookup(i, j)) {
           continue; 
         }
+        int x1 = 0;
+        int y1 = 0;
         for(float x = i; x < i+1; x+=gridincx) {
           for(float y = j; y < j+1; y+= gridincy) {
             
@@ -332,20 +400,19 @@ class rayCaster {
             green += (fastGreen(tl) + fastGreen(tr) +fastGreen(bl) + fastGreen(br))/4;
             blue += (fastBlue(tl) + fastBlue(tr) +fastBlue(bl) + fastBlue(br))/4;
             
-            for(int l = 0; l < lights.size(); l++) {
-              droppedLight light = lights.get(l);
-              tl = luminance(light.pos, new PVector(x, y), light.c);
-              tr = luminance(light.pos, new PVector(x + gridincx, y), light.c);
-              bl = luminance(light.pos, new PVector(x, y + gridincy), light.c);
-              br = luminance(light.pos, new PVector(x + gridincx, y + gridincy), light.c);
-              red += (fastRed(tl) + fastRed(tr) +fastRed(bl) + fastRed(br))/4;
-              green += (fastGreen(tl) + fastGreen(tr) +fastGreen(bl) + fastGreen(br))/4;
-              blue += (fastBlue(tl) + fastBlue(tr) +fastBlue(bl) + fastBlue(br))/4;
-            }
+            // retrieve pre-baked lights  
+            color c = this.bakedillum[(i*this.griddivisionsX + x1) + (j*this.griddivisionsY + y1)*(this.w*this.griddivisionsX)];
+            
+            red += fastRed(c);
+            green += fastGreen(c);
+            blue += fastBlue(c);
             
             fill(color(red, green, blue));
             rect(this.screenCoordsX(x), this.screenCoordsY(y), this.screenCoordsX(gridincx), this.screenCoordsY(gridincy));
+            y1++;
           }
+          y1 = 0;
+          x1++;
         }
       } 
      }
@@ -458,10 +525,12 @@ void keyPressed() {
 void mousePressed() {
   if(mouseButton == LEFT && (walls.fastRed(walls.mouseColor) + walls.fastGreen(walls.mouseColor) + walls.fastBlue(walls.mouseColor) > 0)) {
      walls.lights.add(new droppedLight(new PVector(walls.localCoordsX(mouseX), walls.localCoordsY(mouseY)), walls.mouseColor));
+     walls.bakeLights();
   }
   else if(mouseButton == RIGHT) {
     if(walls.lights.size() > 0) {
       walls.lights.remove(walls.lights.size() - 1);
+      walls.bakeLights();
     }
   }
 }
