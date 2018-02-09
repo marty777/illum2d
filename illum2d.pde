@@ -483,6 +483,7 @@ void keyPressed() {
    
    if(key == 'r' || key == 'R') {
      walls.reset(gridWallThreshold);
+     walls.bakeLights();
    }
    
    if(key == 'c' || key == 'C') {
